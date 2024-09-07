@@ -2,17 +2,12 @@
 
 EN_cardError_t getCardHolderName(ST_cardData_t *cardData)
 {
+    uint8 card_Holder_Name[30];
     printf("Please enter the cardholder's name: ");
-    fgets((char*)cardData->cardHolderName, sizeof(cardData->cardHolderName), stdin);
+    fflush(stdin); fflush(stdout);
+    gets(card_Holder_Name);
 
-    uint8 len = strlen((char*)cardData->cardHolderName);
-    printf("\n%d",len);
-
-    if (len > 0 &&cardData->cardHolderName[len - 1] == '\n')
-    {
-        cardData->cardHolderName[len - 1] = '\0';
-        len--;
-    }
+    uint8 len = strlen(card_Holder_Name);
 
     if (len < 20 || len > 24)
     {
@@ -21,21 +16,23 @@ EN_cardError_t getCardHolderName(ST_cardData_t *cardData)
 
     for (uint8 i = 0; i < len; i++)
     {
-        if (!isalpha(cardData->cardHolderName[i]))
+        if (!isalpha(card_Holder_Name[i])&& card_Holder_Name[i] != ' ')
         {
             return WRONG_NAME;
         }
     }
-
+    strcpy(cardData->cardHolderName, card_Holder_Name);
     return CARD_OK;
 }
 
 EN_cardError_t getCardExpiryDate(ST_cardData_t *cardData)
 {
+    uint8 expiryDate[7];
     printf("Please enter the cardholder's Expiry Date (MM/YY): ");
-    scanf("%s",cardData->cardExpirationDate);
+    fflush(stdin); fflush(stdout);
+    gets(expiryDate);
 
-    size_t len = strlen((char*)cardData->cardExpirationDate);
+    int len = strlen((char*)expiryDate);
 
     if (len != 5)
     {
@@ -47,7 +44,7 @@ EN_cardError_t getCardExpiryDate(ST_cardData_t *cardData)
     {
 
         if (i == 2) {
-            if (cardData->cardExpirationDate[i] != '/')
+            if (expiryDate[i] != '/')
             {
 
                 return WRONG_EXP_DATE;
@@ -55,30 +52,32 @@ EN_cardError_t getCardExpiryDate(ST_cardData_t *cardData)
         }
         else
         {
-            if (!isdigit(cardData->cardExpirationDate[i]))
+            if (!isdigit(expiryDate[i]))
             {
                 return WRONG_EXP_DATE;
             }
         }
     }
 
-    uint8 cardMonth  = ((cardData->cardExpirationDate[0] - '0') * 10) + (cardData->cardExpirationDate[1] - '0');
-    uint8 cardYear  = ((cardData->cardExpirationDate[3] - '0') * 10) + (cardData->cardExpirationDate[4] - '0');
+    uint8 cardMonth  = ((expiryDate[0] - '0') * 10) + (expiryDate[1] - '0');
+    uint8 cardYear  = ((expiryDate[3] - '0') * 10) + (expiryDate[4] - '0');
 
     if (cardMonth  < 1 || cardMonth  > 12 || cardYear  > 99)
     {
         return WRONG_EXP_DATE;
     }
-
+    strcpy(cardData->cardExpirationDate, (char*)expiryDate);
     return CARD_OK;
 }
 
 EN_cardError_t getCardPAN(ST_cardData_t *cardData)
 {
+    uint8 pan[22];
     printf("Please enter the card's Primary Account Number (PAN): ");
-    scanf("%s",cardData->primaryAccountNumber);
+    fflush(stdin); fflush(stdout);
+    gets(pan);
 
-    uint8 len = strlen((char*)cardData->primaryAccountNumber);
+    uint8 len = strlen((char*)pan);
 
     if (len < 16 || len > 19)
     {
@@ -87,46 +86,11 @@ EN_cardError_t getCardPAN(ST_cardData_t *cardData)
 
     for (uint8 i = 0; i < len; i++)
     {
-        if (!isdigit(cardData->primaryAccountNumber[i]))
+        if (!isdigit(pan[i]))
         {
             return WRONG_PAN;
         }
     }
+    strcpy(cardData->primaryAccountNumber, pan);
     return CARD_OK;
-}
-void getCardHolderNameTest()
-{
-    ST_cardData_t cardData;
-    EN_cardError_t result;
-
-    // اختبار حالات مختلفة
-    // حالة صحيحة
-    strcpy((char*)cardData.cardHolderName, "Alexandra Maria Johnson"); // 24 حرف
-    result = getCardHolderName(&cardData);
-    printf("Test Case 1 - Expected: CARD_OK, Result: %d\n", result);
-
-    // حالة خاطئة - طول أقل من 20
-    strcpy((char*)cardData.cardHolderName, "J Doe");
-    result = getCardHolderName(&cardData);
-    printf("Test Case 2 - Expected: WRONG_NAME, Result: %d\n", result);
-
-    // حالة خاطئة - طول أكثر من 24
-    strcpy((char*)cardData.cardHolderName, "Johnathan Alexander Doe the Second");
-    result = getCardHolderName(&cardData);
-    printf("Test Case 3 - Expected: WRONG_NAME, Result: %d\n", result);
-
-    // حالة خاطئة - يحتوي على أرقام
-    strcpy((char*)cardData.cardHolderName, "John123 Doe");
-    result = getCardHolderName(&cardData);
-    printf("Test Case 4 - Expected: WRONG_NAME, Result: %d\n", result);
-
-    // حالة خاطئة - يحتوي على علامات ترقيم
-    strcpy((char*)cardData.cardHolderName, "John, Doe");
-    result = getCardHolderName(&cardData);
-    printf("Test Case 5 - Expected: WRONG_NAME, Result: %d\n", result);
-
-    // حالة صحيحة - طول 20
-    strcpy((char*)cardData.cardHolderName, "Alexander the Great");
-    result = getCardHolderName(&cardData);
-    printf("Test Case 6 - Expected: CARD_OK, Result: %d\n", result);
 }

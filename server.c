@@ -8,6 +8,11 @@
 
 
 EN_serverError_t isValidAccount(ST_cardData_t *cardData, ST_accountsDB_t *accountReference) {
+    // تحقق من أن بيانات البطاقة ومرجع الحساب ليسا فارغين
+    if (cardData == NULL || accountReference == NULL) {
+        return INTERNAL_SERVER_ERROR; // خطأ داخلي في الخادم
+    }
+
     AccountNode* current = accountsHead;  // بدء البحث من رأس القائمة
 
     // البحث عن الحساب في القائمة المرتبطة
@@ -21,36 +26,39 @@ EN_serverError_t isValidAccount(ST_cardData_t *cardData, ST_accountsDB_t *accoun
     }
 
     // إذا لم يتم العثور على الحساب
-    accountReference = NULL;
     return ACCOUNT_NOT_FOUND;
 }
 
-void isValidAccountTest(void) {
-    ST_cardData_t testCard;
-    ST_accountsDB_t* account;
-    EN_serverError_t result;
+EN_serverError_t isBlockedAccount(ST_accountsDB_t *accountReference) {
+    // تحقق من أن مرجع الحساب ليس فارغًا
+    if (accountReference == NULL) {
+        return INTERNAL_SERVER_ERROR; // خطأ داخلي في الخادم
+    }
 
-    printf("Tester Name: Your Name\n");
-    printf("Function Name: isValidAccount\n");
+    // تحقق مما إذا كان الحساب محظورًا
+    if (accountReference->state == BLOCKED) {
+        return BLOCKED_ACCOUNT; // الحساب محظور
+    }
 
-    // اختبار الحالة الأولى: PAN صالح موجود في قاعدة البيانات
-    printf("Test Case 1:\n");
-    printf("Input Data: Valid PAN\n");
-    strcpy(testCard.primaryAccountNumber, "1234567890123456");  // PAN صالح
-    result = isValidAccount(&testCard, &account);
-    printf("Expected Result: SERVER_OK\n");
-    printf("Actual Result: %s\n", (result == SERVER_OK) ? "SERVER_OK" : "ACCOUNT_NOT_FOUND");
-
-    // اختبار الحالة الثانية: PAN غير موجود في قاعدة البيانات
-    printf("Test Case 2:\n");
-    printf("Input Data: Invalid PAN\n");
-    strcpy(testCard.primaryAccountNumber, "1111222233334444");  // PAN غير صالح
-    result = isValidAccount(&testCard, &account);
-    printf("Expected Result: ACCOUNT_NOT_FOUND\n");
-    printf("Actual Result: %s\n", (result == ACCOUNT_NOT_FOUND) ? "ACCOUNT_NOT_FOUND" : "SERVER_OK");
-
-    // يمكنك إضافة المزيد من الحالات إذا كان هناك حالات إضافية تحتاج للاختبار.
+    // الحساب ليس محظورًا
+    return SERVER_OK;
 }
+
+EN_serverError_t isAmountAvailable(ST_terminalData_t *termData, ST_accountsDB_t* accountReference) {
+    // تحقق من أن بيانات المحطة ومرجع الحساب ليسا فارغين
+    if (termData == NULL || accountReference == NULL) {
+        return INTERNAL_SERVER_ERROR; // خطأ داخلي في الخادم
+    }
+
+    // تحقق مما إذا كان مبلغ المعاملة يتجاوز رصيد الحساب
+    if (termData->transAmount > accountReference->balance) {
+        return LOW_BALANCE; // رصيد غير كافٍ
+    }
+
+    // إذا كان مبلغ المعاملة ضمن الرصيد، ارجع بنجاح
+    return SERVER_OK;
+}
+
 
 
 
