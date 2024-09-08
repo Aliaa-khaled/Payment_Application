@@ -44,52 +44,54 @@ void isCardExpiredTest(void)
     printf("\nTester Name: Abdelrhman Mohamed\n");
     printf("Function Name: isCardExpired()\n");
 
-    // استبدال قيم التواريخ بناءً على حالات الاختبار المختلفة
     for (int i = 1; i <= TEST_CASES_NUM; i++)
     {
         printf("Test Case %d:\n", i);
 
-        // ضبط التواريخ وفقاً لحالة الاختبار
         switch (i)
         {
         case 1:
-            // تواريخ اختبار الحالة 1
             strcpy(cardData.cardExpirationDate, "01/20"); // تاريخ انتهاء البطاقة
-            strcpy(terminalData.transactionDate, "01/2023"); // تاريخ المعاملة
+            strcpy(terminalData.transactionDate, "05/01/2023"); // تاريخ المعاملة
+            printf("cardData.cardExpirationDate=%s\n", cardData.cardExpirationDate);
+            printf("terminalData.transactionDate=%s\n", terminalData.transactionDate);
             printf("Input Data: Expiry: 01/20, Transaction: 01/2023\n");
             printf("Expected Result: %d\n", EXPIRED_CARD);
             break;
 
         case 2:
-            // تواريخ اختبار الحالة 2
             strcpy(cardData.cardExpirationDate, "01/23");
-            strcpy(terminalData.transactionDate, "01/2023");
+            strcpy(terminalData.transactionDate, "12/01/2023");
+            printf("cardData.cardExpirationDate=%s\n", cardData.cardExpirationDate);
+            printf("terminalData.transactionDate=%s\n", terminalData.transactionDate);
             printf("Input Data: Expiry: 01/23, Transaction: 01/2023\n");
             printf("Expected Result: %d\n", TERMINAL_OK);
             break;
 
         case 3:
-            // تواريخ اختبار الحالة 3
             strcpy(cardData.cardExpirationDate, "01/24");
-            strcpy(terminalData.transactionDate, "01/2023");
+            strcpy(terminalData.transactionDate, "11/01/2023");
+            printf("cardData.cardExpirationDate=%s\n", cardData.cardExpirationDate);
+            printf("terminalData.transactionDate=%s\n", terminalData.transactionDate);
             printf("Input Data: Expiry: 01/24, Transaction: 01/2023\n");
             printf("Expected Result: %d\n", TERMINAL_OK);
             break;
 
         case 4:
-            // تواريخ اختبار الحالة 4
             strcpy(cardData.cardExpirationDate, "01/23");
-            strcpy(terminalData.transactionDate, "02/2023");
+            strcpy(terminalData.transactionDate, "20/02/2023");
+            printf("cardData.cardExpirationDate=%s\n", cardData.cardExpirationDate);
+            printf("terminalData.transactionDate=%s\n", terminalData.transactionDate);
             printf("Input Data: Expiry: 01/23, Transaction: 02/2023\n");
             printf("Expected Result: %d\n", EXPIRED_CARD);
             break;
         }
 
-        // استدعاء الدالة لاختبار النتائج
         EN_terminalError_t error = isCardExpired(&cardData, &terminalData);
         printf("Actual Result: %d\n", error);
     }
 }
+
 
 
 void getTransactionAmountTest(void)
@@ -177,36 +179,25 @@ void isValidCardPANTest(void)
         {
         case 1:
             strcpy(cardData.primaryAccountNumber, "4532015112830366"); // Valid PAN
-            error = isValidCardPAN(&cardData);
-            printf("Input Data: 4532015112830366\n");
-            printf("Expected Result: %d\n", TERMINAL_OK);
-            printf("Actual Result: %d\n", error);
             break;
 
         case 2:
             strcpy(cardData.primaryAccountNumber, "4532015112830367"); // Invalid PAN
-            error = isValidCardPAN(&cardData);
-            printf("Input Data: 4532015112830367\n");
-            printf("Expected Result: %d\n", INVALID_CARD);
-            printf("Actual Result: %d\n", error);
             break;
 
         case 3:
             strcpy(cardData.primaryAccountNumber, "1234567812345670"); // Invalid PAN
-            error = isValidCardPAN(&cardData);
-            printf("Input Data: 1234567812345670\n");
-            printf("Expected Result: %d\n", INVALID_CARD);
-            printf("Actual Result: %d\n", error);
             break;
 
         case 4:
             strcpy(cardData.primaryAccountNumber, "1234567812345678"); // Valid PAN
-            error = isValidCardPAN(&cardData);
-            printf("Input Data: 1234567812345678\n");
-            printf("Expected Result: %d\n", TERMINAL_OK);
-            printf("Actual Result: %d\n", error);
             break;
         }
+
+        error = isValidCardPAN(&cardData);
+        printf("Input Data: %s\n", cardData.primaryAccountNumber);
+        printf("Expected Result: %d\n", (i == 1 || i == 4) ? TERMINAL_OK : INVALID_CARD);
+        printf("Actual Result: %d\n", error);
     }
 }
 

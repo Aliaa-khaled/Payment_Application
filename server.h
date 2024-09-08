@@ -55,8 +55,6 @@ typedef struct AccountNode {
 } AccountNode;
 
 
-// تعريف المؤشر لرأس القائمة المرتبطة للحسابات
-extern AccountNode* accountsHead;
 
 EN_transStat_t recieveTransactionData(ST_transaction_t *transData);
 EN_serverError_t isValidAccount(ST_cardData_t *cardData, ST_accountsDB_t*accountRefrence);

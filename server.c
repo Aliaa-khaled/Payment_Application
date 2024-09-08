@@ -3,70 +3,144 @@
 
 #include "server.h"
 #include "file_handling.h"
-//#include "queue.h"
+#include "queue.h"
+extern Queue transactionQueue;
+extern AccountNode* accountsHead;
 
-
-
-EN_serverError_t isValidAccount(ST_cardData_t *cardData, ST_accountsDB_t *accountReference) {
-    // تحقق من أن بيانات البطاقة ومرجع الحساب ليسا فارغين
+EN_serverError_t isValidAccount(ST_cardData_t* cardData, ST_accountsDB_t* accountReference) {
     if (cardData == NULL || accountReference == NULL) {
-        return INTERNAL_SERVER_ERROR; // خطأ داخلي في الخادم
+        return INTERNAL_SERVER_ERROR;
     }
 
-    AccountNode* current = accountsHead;  // بدء البحث من رأس القائمة
+    AccountNode* current = accountsHead;
 
-    // البحث عن الحساب في القائمة المرتبطة
     while (current != NULL) {
         if (strcmp(current->accountData.primaryAccountNumber, cardData->primaryAccountNumber) == 0) {
-            // الحساب موجود، إعادة مرجع الحساب
             *accountReference = current->accountData;
             return SERVER_OK;
         }
-        current = current->next;  // الانتقال إلى العقدة التالية
+        current = current->next;
     }
 
-    // إذا لم يتم العثور على الحساب
     return ACCOUNT_NOT_FOUND;
 }
 
-EN_serverError_t isBlockedAccount(ST_accountsDB_t *accountReference) {
-    // تحقق من أن مرجع الحساب ليس فارغًا
-    if (accountReference == NULL) {
-        return INTERNAL_SERVER_ERROR; // خطأ داخلي في الخادم
+
+EN_serverError_t isBlockedAccount(ST_accountsDB_t *accountReference)
+{
+    if (accountReference == NULL)
+    {
+        return INTERNAL_SERVER_ERROR;
     }
 
-    // تحقق مما إذا كان الحساب محظورًا
-    if (accountReference->state == BLOCKED) {
-        return BLOCKED_ACCOUNT; // الحساب محظور
+    if (accountReference->state == BLOCKED)
+    {
+        return BLOCKED_ACCOUNT;
     }
 
-    // الحساب ليس محظورًا
-    return SERVER_OK;
-}
-
-EN_serverError_t isAmountAvailable(ST_terminalData_t *termData, ST_accountsDB_t* accountReference) {
-    // تحقق من أن بيانات المحطة ومرجع الحساب ليسا فارغين
-    if (termData == NULL || accountReference == NULL) {
-        return INTERNAL_SERVER_ERROR; // خطأ داخلي في الخادم
-    }
-
-    // تحقق مما إذا كان مبلغ المعاملة يتجاوز رصيد الحساب
-    if (termData->transAmount > accountReference->balance) {
-        return LOW_BALANCE; // رصيد غير كافٍ
-    }
-
-    // إذا كان مبلغ المعاملة ضمن الرصيد، ارجع بنجاح
     return SERVER_OK;
 }
 
 
+EN_serverError_t isAmountAvailable(ST_terminalData_t *termData, ST_accountsDB_t* accountReference)
+{
+    if (termData == NULL || accountReference == NULL)
+    {
+        return INTERNAL_SERVER_ERROR;
+    }
+
+    if (termData->transAmount > accountReference->balance)
+    {
+        return LOW_BALANCE;
+    }
+
+    return SERVER_OK;
+}
 
 
 
 
+EN_serverError_t saveTransaction(ST_transaction_t* transaction)
+{
+    enqueue(&transactionQueue, *transaction);
+    saveTransactionsToFile("transactions.txt");
+    return SERVER_OK;
+}
 
 
+void listSavedTransactions(void) {
+    if (isQueueEmpty(&transactionQueue)) {
+        printf("The transaction queue is empty.\n");
+        return;
+    }
 
+    Node* current = transactionQueue.front; // بداية الطابور
+
+    printf("Listing Saved Transactions:\n");
+
+    while (current != NULL) {
+        ST_transaction_t transaction = current->transaction;
+
+        printf("#########################\n");
+        printf("Transaction Sequence Number: %d\n", transaction.transactionSequenceNumber);
+        printf("Transaction Date: %s\n", transaction.terminalData.transactionDate);
+        printf("Transaction Amount: %.2f\n", transaction.terminalData.transAmount);
+        printf("Transaction State: %d\n", transaction.transState);
+        printf("Terminal Max Amount: %.2f\n", transaction.terminalData.maxTransAmount);
+        printf("Cardholder Name: %s\n", transaction.cardHolderData.cardHolderName);
+        printf("PAN: %s\n", transaction.cardHolderData.primaryAccountNumber);
+        printf("Card Expiration Date: %s\n", transaction.cardHolderData.cardExpirationDate);
+        printf("#########################\n");
+
+        current = current->next; // الانتقال إلى العنصر التالي في الطابور
+    }
+}
+
+
+EN_transStat_t recieveTransactionData(ST_transaction_t *transData) {
+    ST_accountsDB_t account;
+    EN_serverError_t serverError;
+
+    printf("Starting transaction for PAN: %s\n", transData->cardHolderData.primaryAccountNumber);
+
+    // 1. Check account validity (using the PAN from the transaction)
+    serverError = isValidAccount(&transData->cardHolderData.primaryAccountNumber, &account);
+    if (serverError != SERVER_OK) {
+        printf("Account not valid. Error: %d\n", serverError);
+        return FRAUD_CARD;  // If account does not exist
+    }
+
+    // 2. Check if the account is blocked
+    serverError = isBlockedAccount(&account);
+    if (serverError != SERVER_OK) {
+        printf("Account is blocked. Error: %d\n", serverError);
+        return DECLINED_STOLEN_CARD;  // If the account is blocked
+    }
+
+    // 3. Check if the amount is available
+    serverError = isAmountAvailable(&transData->terminalData, &account);
+    if (serverError != SERVER_OK) {
+        printf("Insufficient funds. Error: %d\n", serverError);
+        return DECLINED_INSUFFECIENT_FUND;  // If insufficient funds
+    }
+
+    // 4. Update the account balance
+    printf("Current balance: %.2f\n", account.balance);
+    account.balance -= transData->terminalData.transAmount;
+    printf("New balance: %.2f\n", account.balance);
+
+    // Save the updated account information (if applicable)
+    // updateAccount(&account);
+
+    // 5. Save the transaction
+    serverError = saveTransaction(transData);
+    if (serverError != SERVER_OK) {
+        printf("Failed to save transaction. Error: %d\n", serverError);
+        return INTERNAL_SERVER_ERROR;  // If saving fails
+    }
+
+    return APPROVED;  // If all checks passed and the transaction was saved
+}
 
 
 

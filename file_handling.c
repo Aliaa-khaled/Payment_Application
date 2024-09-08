@@ -4,10 +4,11 @@
 #include <string.h>
 
 // تعريف قاعدة بيانات الحسابات باستخدام قائمة مرتبطة
-AccountNode* accountsHead = NULL;
+
+ AccountNode* accountsHead;
 
 // تعريف قاعدة بيانات المعاملات (من نوع Queue)
-Queue transactionQueue;
+extern Queue transactionQueue;
 
 // دوال إدارة الحسابات
 
@@ -20,16 +21,22 @@ void loadAccountsFromFile(const char* filename) {
 
     ST_accountsDB_t account;
     while (fscanf(file, "%19s %f %d\n",
-                  account.primaryAccountNumber,
+                  (char*)account.primaryAccountNumber,  // تحويل إلى char* إذا كان uint8_t
                   &account.balance,
                   (int*)&account.state) == 3) {
+
+        // تخصيص ذاكرة لعقدة جديدة
         AccountNode* newNode = (AccountNode*)malloc(sizeof(AccountNode));
         if (newNode == NULL) {
             perror("Failed to allocate memory for new node");
             fclose(file);
             return;
         }
+
+        // تخزين بيانات الحساب في العقدة
         newNode->accountData = account;
+
+        // إضافة العقدة إلى بداية القائمة المرتبطة
         newNode->next = accountsHead;
         accountsHead = newNode;
     }
@@ -37,8 +44,9 @@ void loadAccountsFromFile(const char* filename) {
     fclose(file);
 }
 
+
 void saveAccountsToFile(const char* filename) {
-    FILE* file = fopen(filename, "w");
+    FILE* file = fopen(filename, "a");
     if (file == NULL) {
         perror("Failed to open file");
         return;
@@ -64,8 +72,6 @@ void loadTransactionsFromFile(const char* filename) {
         perror("Failed to open file");
         return;
     }
-
-    initializeQueue(&transactionQueue);
 
     char line[256];
     while (fgets(line, sizeof(line), file)) {
@@ -102,17 +108,22 @@ void saveTransactionsToFile(const char* filename) {
         return;
     }
 
-    Queue tempQueue = transactionQueue;
-    while (!isQueueEmpty(&tempQueue)) {
-        ST_transaction_t transaction = dequeue(&tempQueue);
+    // استخدم مؤشر مؤقت للتكرار عبر الطابور
+    Node* current = transactionQueue.front;
 
-        fprintf(file, "%s,%s,%s,%.2f,%s,%.2f\n",
+    while (current != NULL) {
+        ST_transaction_t transaction = current->transaction;
+
+        fprintf(file, "%s,%s,%s,%f,%s,%f\n",
                 transaction.cardHolderData.cardHolderName,
                 transaction.cardHolderData.primaryAccountNumber,
                 transaction.cardHolderData.cardExpirationDate,
                 transaction.terminalData.transAmount,
                 transaction.terminalData.transactionDate,
                 transaction.terminalData.maxTransAmount);
+
+        // انتقل إلى العقدة التالية
+        current = current->next;
     }
 
     fclose(file);

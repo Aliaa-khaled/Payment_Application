@@ -52,18 +52,25 @@ EN_terminalError_t getTransactionDate(ST_terminalData_t *termData)
     return TERMINAL_OK;
 
 }
-
 EN_terminalError_t isCardExpired(ST_cardData_t *cardData, ST_terminalData_t *termData)
 {
     uint8 cardMonth  = ((cardData->cardExpirationDate[0] - '0') * 10) + (cardData->cardExpirationDate[1] - '0');
-    uint8 cardYear  = ((cardData->cardExpirationDate[3] - '0') * 10) + (cardData->cardExpirationDate[4] - '0');
+
+    uint32 cardYear   = ((cardData->cardExpirationDate[3] - '0') * 10) + (cardData->cardExpirationDate[4] - '0');
     cardYear += 2000;
 
-    uint8 transMonth  = ((termData->transactionDate[3] - '0') * 10) + (termData->transactionDate[4] - '0');
-    uint16 transYear  = ((termData->transactionDate[6] - '0') * 1000) +
+    uint8 transMonth = ((termData->transactionDate[3] - '0') * 10) + (termData->transactionDate[4] - '0');
+    uint16 transYear = ((termData->transactionDate[6] - '0') * 1000) +
                         ((termData->transactionDate[7] - '0') * 100) +
                         ((termData->transactionDate[8] - '0') * 10) +
                         (termData->transactionDate[9] - '0');
+    // تصحيح التحويلات والتأكد من أن السنة الشهر يتم حسابهما بشكل صحيح
+    printf("cardYear=%d\n", cardYear);
+    printf("cardMonth=%d\n", cardMonth);
+    printf("transMonth=%d\n", transMonth);
+    printf("transYear=%d\n", transYear);
+
+    // تحقق من تاريخ انتهاء البطاقة ضد تاريخ المعاملة
     if (cardYear < transYear)
     {
         return EXPIRED_CARD;
@@ -77,6 +84,7 @@ EN_terminalError_t isCardExpired(ST_cardData_t *cardData, ST_terminalData_t *ter
     }
     return TERMINAL_OK;
 }
+
 
 EN_terminalError_t getTransactionAmount(ST_terminalData_t *termData)
 {
@@ -98,36 +106,50 @@ EN_terminalError_t isBelowMaxAmount(ST_terminalData_t *termData)
     return TERMINAL_OK;
 }
 
+EN_terminalError_t setMaxAmount(ST_terminalData_t *termData, float maxAmount)
+{
+    if (maxAmount <= 0) {
+        return INVALID_MAX_AMOUNT;
+    }
+    termData->maxTransAmount = maxAmount;
+    return TERMINAL_OK;
+
+}
+
 EN_terminalError_t isValidCardPAN(ST_cardData_t *cardData)
 {
-    uint8 len = strlen((char*)cardData->primaryAccountNumber);
+    uint8 len = strlen(cardData->primaryAccountNumber);
     int sum = 0;
     int isSecond = 0;
 
-    // تحقق من طول الرقم
+    // Check if length is correct (typically 16 for most cards)
     if (len < 13 || len > 19) {
-        return INVALID_CARD; // طول الرقم غير صحيح
+        printf("Invalid length: %d\n", len);
+        return INVALID_CARD;
     }
 
     for (int i = len - 1; i >= 0; i--) {
         int digit = cardData->primaryAccountNumber[i] - '0';
 
-        // تحقق من أن الرقم هو رقم صحيح
+        // Skip if the character is not a digit
         if (digit < 0 || digit > 9) {
+            printf("Non-digit character found: %c\n", cardData->primaryAccountNumber[i]);
             return INVALID_CARD;
         }
 
-        // تطبيق خوارزمية لوفينسون
         if (isSecond) {
-            digit *= 2;
-            if (digit > 9) {
-                digit -= 9;
-            }
+            digit = digit * 2;
+            // Add digits of the product (e.g., 18 becomes 1 + 8 = 9)
+            sum += digit / 10;
+            sum += digit % 10;
+        } else {
+            sum += digit;
         }
 
-        sum += digit;
         isSecond = !isSecond;
     }
+
+    printf("Sum: %d\n", sum);
 
     if (sum % 10 == 0) {
         return TERMINAL_OK;

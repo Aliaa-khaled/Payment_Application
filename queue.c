@@ -1,5 +1,5 @@
 #include "queue.h"
-
+Queue transactionQueue;
 // تهيئة الطابور
 void initializeQueue(Queue* q) {
     q->front = NULL;
