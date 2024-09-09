@@ -121,7 +121,6 @@ EN_transStat_t recieveTransactionData(ST_transaction_t *transData) {
     ST_accountsDB_t account;
     EN_serverError_t serverError;
 
-    printf("Starting transaction for PAN: %s\n", transData->cardHolderData.primaryAccountNumber);
 
     // 1. Check account validity (using the PAN from the transaction)
     serverError = isValidAccount(&transData->cardHolderData, &account);

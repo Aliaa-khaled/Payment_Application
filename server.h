@@ -1,135 +1,66 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include "server.h"
-#include "file_handling.h"
-#include "queue.h"
+#ifndef SERVER_H
+#define SERVER_H
+
 #include "terminal.h"
 #include "card.h"
 
-extern Queue transactionQueue;
-AccountNode* accountsHead = NULL;
+// تعريف حالات المعاملة
+typedef enum EN_transState_t
+{
+    APPROVED,
+    DECLINED_INSUFFECIENT_FUND,
+    DECLINED_STOLEN_CARD,
+    FRAUD_CARD,
+    INTERNAL_SERVER_ERROR
+}EN_transStat_t;
 
-void appStart(void) {
-    ST_transaction_t transaction;
-    EN_transStat_t status;
-    EN_terminalError_t terminalError;
-    EN_cardError_t cardError;
-    float amount;
-    f32 maxAmount = 5000.0;  // الحد الأقصى للمبلغ
+// هيكل المعاملة
+typedef struct ST_transaction_t
+{
+    ST_cardData_t cardHolderData;
+    ST_terminalData_t terminalData;
+    EN_transStat_t transState;
+    uint32 transactionSequenceNumber;
+}ST_transaction_t;
 
-    // تحميل الحسابات من الملف
-    printf("Loading accounts from file...\n");
-    loadAccountsFromFile("accounts.txt");
+// أخطاء السيرفر
+typedef enum EN_serverError_t
+{
+    SERVER_OK,
+    SAVING_FAILED,
+    TRANSACTION_NOT_FOUND,
+    ACCOUNT_NOT_FOUND,
+    LOW_BALANCE,
+    BLOCKED_ACCOUNT
+}EN_serverError_t ;
 
-    // تحميل المعاملات من الملف
-    printf("Loading transactions from file...\n");
-    loadTransactionsFromFile("transactions.txt");
+// حالة الحساب
+typedef enum EN_accountState_t
+{
+    RUNNING,
+    BLOCKED
+}EN_accountState_t;
 
-    // معالجة المعاملات
-    printf("Processing transactions...\n");
-    while (!isQueueEmpty(&transactionQueue)) {
-        transaction = dequeue(&transactionQueue);
+// هيكل قاعدة بيانات الحسابات
+typedef struct ST_accountsDB_t
+{
+    float balance;
+    EN_accountState_t state;
+    uint8 primaryAccountNumber[20];
+}ST_accountsDB_t;
 
-        // الحصول على اسم صاحب البطاقة
-        cardError = getCardHolderName(&transaction.cardHolderData);
-        if (cardError != CARD_OK) {
-            printf("Error: Invalid Card Holder Name.\n");
-            continue;
-        }
+typedef struct AccountNode {
+    ST_accountsDB_t accountData;
+    struct AccountNode* next;
+} AccountNode;
 
-        // الحصول على تاريخ انتهاء صلاحية البطاقة
-        cardError = getCardExpiryDate(&transaction.cardHolderData);
-        if (cardError != CARD_OK) {
-            printf("Error: Invalid Card Expiry Date.\n");
-            continue;
-        }
 
-        // الحصول على رقم البطاقة (PAN)
-        cardError = getCardPAN(&transaction.cardHolderData);
-        if (cardError != CARD_OK) {
-            printf("Error: Invalid PAN.\n");
-            continue;
-        }
 
-        // التحقق من تاريخ المعاملة
-        terminalError = getTransactionDate(&transaction.terminalData);
-        if (terminalError != TERMINAL_OK) {
-            printf("Error: Invalid Transaction Date.\n");
-            continue;
-        }
+EN_transStat_t recieveTransactionData(ST_transaction_t *transData);
+EN_serverError_t isValidAccount(ST_cardData_t *cardData, ST_accountsDB_t*accountRefrence);
+EN_serverError_t isBlockedAccount(ST_accountsDB_t *accountRefrence);
+EN_serverError_t isAmountAvailable(ST_terminalData_t *termData,ST_accountsDB_t* accountRefrence);
+EN_serverError_t saveTransaction(ST_transaction_t *transData);
+void listSavedTransactions(void);
 
-        // التحقق إذا كانت البطاقة منتهية الصلاحية
-        terminalError = isCardExpired(&transaction.cardHolderData, &transaction.terminalData);
-        if (terminalError != TERMINAL_OK) {
-            printf("Error: Card Expired.\n");
-            continue;
-        }
-
-        // الحصول على قيمة المعاملة
-        terminalError = getTransactionAmount(&transaction.terminalData);
-        if (terminalError != TERMINAL_OK) {
-            printf("Error: Invalid Transaction Amount.\n");
-            continue;
-        }
-
-        // ضبط الحد الأقصى للمبلغ
-        terminalError = setMaxAmount(&transaction.terminalData, maxAmount);
-        if (terminalError != TERMINAL_OK) {
-            printf("Error: Unable to set max amount.\n");
-            continue;
-        }
-
-        // التحقق إذا كان المبلغ أقل من الحد الأقصى
-        terminalError = isBelowMaxAmount(&transaction.terminalData);
-        if (terminalError != TERMINAL_OK) {
-            printf("Error: Transaction Amount Exceeds Maximum Limit.\n");
-            continue;
-        }
-
-        // التحقق من صحة الحساب
-        status = isValidAccount(&transaction.cardHolderData);
-        if (status != ACCOUNT_OK) {
-            printf("Error: Invalid Account.\n");
-            continue;
-        }
-
-        // التحقق من حالة الحساب
-        status = isBlockedAccount(&transaction.cardHolderData);
-        if (status != ACCOUNT_OK) {
-            printf("Error: Account Blocked.\n");
-            continue;
-        }
-
-        // التحقق من الرصيد المتاح
-        status = isAmountAvailable(&transaction.terminalData);
-        if (status != ACCOUNT_OK) {
-            printf("Error: Low Balance.\n");
-            continue;
-        }
-
-        // معالجة المعاملة
-        printf("Starting transaction for PAN: %s\n", transaction.cardHolderData.primaryAccountNumber);
-        status = recieveTransactionData(&transaction);
-
-        if (status == APPROVED) {
-            // حفظ المعاملة
-            if (saveTransaction(&transaction) != SERVER_OK) {
-                printf("Error: Failed to Save Transaction.\n");
-                continue;
-            }
-
-            // تحديث الرصيد
-            if (updateAccountBalance(&transaction) != SERVER_OK) {
-                printf("Error: Failed to Update Balance.\n");
-                continue;
-            }
-
-            printf("Transaction Approved - Seq Number: %d\n", transaction.transactionSequenceNumber);
-        } else {
-            printf("Transaction Failed: Seq Number: %d, Error Code: %d\n", transaction.transactionSequenceNumber, status);
-        }
-    }
-
-    printf("Application finished.\n");
-}
+#endif // SERVER_H

@@ -64,11 +64,7 @@ EN_terminalError_t isCardExpired(ST_cardData_t *cardData, ST_terminalData_t *ter
                         ((termData->transactionDate[7] - '0') * 100) +
                         ((termData->transactionDate[8] - '0') * 10) +
                         (termData->transactionDate[9] - '0');
-    // تصحيح التحويلات والتأكد من أن السنة الشهر يتم حسابهما بشكل صحيح
-    printf("cardYear=%d\n", cardYear);
-    printf("cardMonth=%d\n", cardMonth);
-    printf("transMonth=%d\n", transMonth);
-    printf("transYear=%d\n", transYear);
+
 
     // تحقق من تاريخ انتهاء البطاقة ضد تاريخ المعاملة
     if (cardYear < transYear)
