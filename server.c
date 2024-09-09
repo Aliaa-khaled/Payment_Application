@@ -9,12 +9,14 @@ extern AccountNode* accountsHead;
 
 EN_serverError_t isValidAccount(ST_cardData_t* cardData, ST_accountsDB_t* accountReference) {
     if (cardData == NULL || accountReference == NULL) {
+        printf("Error: Null pointer provided.\n");
         return INTERNAL_SERVER_ERROR;
     }
 
     AccountNode* current = accountsHead;
 
     while (current != NULL) {
+
         if (strcmp(current->accountData.primaryAccountNumber, cardData->primaryAccountNumber) == 0) {
             *accountReference = current->accountData;
             return SERVER_OK;
@@ -24,6 +26,7 @@ EN_serverError_t isValidAccount(ST_cardData_t* cardData, ST_accountsDB_t* accoun
 
     return ACCOUNT_NOT_FOUND;
 }
+
 
 
 EN_serverError_t isBlockedAccount(ST_accountsDB_t *accountReference)
@@ -96,6 +99,23 @@ void listSavedTransactions(void) {
     }
 }
 
+EN_serverError_t updateAccount(ST_accountsDB_t *updatedAccount) {
+    AccountNode* current = accountsHead;
+
+    // البحث عن الحساب بناءً على رقم الحساب (PAN)
+    while (current != NULL) {
+        if (strcmp(current->accountData.primaryAccountNumber, updatedAccount->primaryAccountNumber) == 0) {
+            // تحديث الرصيد أو الحالة أو أي بيانات أخرى
+            current->accountData.balance = updatedAccount->balance;
+            current->accountData.state = updatedAccount->state;
+            return SERVER_OK;
+        }
+        current = current->next;
+    }
+
+    return ACCOUNT_NOT_FOUND;  // إذا لم يتم العثور على الحساب
+}
+
 
 EN_transStat_t recieveTransactionData(ST_transaction_t *transData) {
     ST_accountsDB_t account;
@@ -104,7 +124,7 @@ EN_transStat_t recieveTransactionData(ST_transaction_t *transData) {
     printf("Starting transaction for PAN: %s\n", transData->cardHolderData.primaryAccountNumber);
 
     // 1. Check account validity (using the PAN from the transaction)
-    serverError = isValidAccount(&transData->cardHolderData.primaryAccountNumber, &account);
+    serverError = isValidAccount(&transData->cardHolderData, &account);
     if (serverError != SERVER_OK) {
         printf("Account not valid. Error: %d\n", serverError);
         return FRAUD_CARD;  // If account does not exist
@@ -129,10 +149,16 @@ EN_transStat_t recieveTransactionData(ST_transaction_t *transData) {
     account.balance -= transData->terminalData.transAmount;
     printf("New balance: %.2f\n", account.balance);
 
-    // Save the updated account information (if applicable)
+    // Save the updated account information
+    EN_serverError_t updateStatus = updateAccount(&account);
+    if (updateStatus != SERVER_OK)
+    {
+    printf("Failed to update account. Error: %d\n", updateStatus);
+    }
+    // Save the accounts back to the file
+    saveAccountsToFile("accounts.txt");
     // updateAccount(&account);
 
-    // 5. Save the transaction
     serverError = saveTransaction(transData);
     if (serverError != SERVER_OK) {
         printf("Failed to save transaction. Error: %d\n", serverError);

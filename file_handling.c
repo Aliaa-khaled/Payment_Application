@@ -5,7 +5,7 @@
 
 // تعريف قاعدة بيانات الحسابات باستخدام قائمة مرتبطة
 
- AccountNode* accountsHead;
+extern AccountNode* accountsHead;
 
 // تعريف قاعدة بيانات المعاملات (من نوع Queue)
 extern Queue transactionQueue;
@@ -21,7 +21,7 @@ void loadAccountsFromFile(const char* filename) {
 
     ST_accountsDB_t account;
     while (fscanf(file, "%19s %f %d\n",
-                  (char*)account.primaryAccountNumber,  // تحويل إلى char* إذا كان uint8_t
+                  account.primaryAccountNumber,
                   &account.balance,
                   (int*)&account.state) == 3) {
 
@@ -35,20 +35,34 @@ void loadAccountsFromFile(const char* filename) {
 
         // تخزين بيانات الحساب في العقدة
         newNode->accountData = account;
+        newNode->next = NULL;
 
-        // إضافة العقدة إلى بداية القائمة المرتبطة
-        newNode->next = accountsHead;
-        accountsHead = newNode;
+        // إذا كانت القائمة فارغة، اجعل العقدة الجديدة هي الرأس
+        if (accountsHead == NULL) {
+            accountsHead = newNode;
+        } else {
+            // اجعل current يبدأ من الرأس
+            AccountNode* current = accountsHead;
+
+            // التنقل للوصول إلى آخر عقدة في القائمة
+            while (current->next != NULL) {
+                current = current->next;
+            }
+
+            // إضافة العقدة الجديدة في نهاية القائمة
+            current->next = newNode;
+        }
     }
 
     fclose(file);
 }
 
 
+
 void saveAccountsToFile(const char* filename) {
-    FILE* file = fopen(filename, "a");
+    FILE* file = fopen(filename, "w");
     if (file == NULL) {
-        perror("Failed to open file");
+        perror("Failed to open file for saving accounts");
         return;
     }
 
@@ -57,12 +71,13 @@ void saveAccountsToFile(const char* filename) {
         fprintf(file, "%s %.2f %d\n",
                 current->accountData.primaryAccountNumber,
                 current->accountData.balance,
-                (int)current->accountData.state);
+                current->accountData.state);
         current = current->next;
     }
 
     fclose(file);
 }
+
 
 // دوال إدارة المعاملات
 

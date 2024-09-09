@@ -22,7 +22,7 @@ void isValidAccountTest(void) {
     }
 
     // Test Case 1: حساب موجود
-    strcpy(cardData.primaryAccountNumber, "4502015112330366");  // رقم حساب موجود (افتراضًا)
+    strcpy(cardData.primaryAccountNumber, "1234567812345678");  // رقم حساب موجود (افتراضًا)
     result = isValidAccount(&cardData, &account);
     printf("Test Case 1: Expected: SERVER_OK, Actual: %d\n", result);  // SERVER_OK متوقع
 
@@ -31,7 +31,6 @@ void isValidAccountTest(void) {
     result = isValidAccount(&cardData, &account);
     printf("Test Case 2: Expected: ACCOUNT_NOT_FOUND, Actual: %d\n", result);  // ACCOUNT_NOT_FOUND متوقع
 }
-
 void isBlockedAccountTest(void) {
     ST_accountsDB_t account;
     EN_serverError_t result;
@@ -46,7 +45,6 @@ void isBlockedAccountTest(void) {
     result = isBlockedAccount(&account);
     printf("Test Case 2: Account State: %d, Expected: BLOCKED_ACCOUNT, Actual: %d\n", account.state, result);
 }
-
 void isAmountAvailableTest(void) {
     ST_terminalData_t termData;
     ST_accountsDB_t account;
@@ -113,17 +111,15 @@ void testRecieveTransactionData() {
     ST_transaction_t transaction;
     EN_transStat_t transStatus;
 
-    // Assume transactions have been loaded into `transactionQueue` or similar
-
     // Example test: processing a transaction
     // Ensure to replace these values with the corresponding test cases
 
     // Test Case: Valid transaction
-    strcpy(transaction.cardHolderData.primaryAccountNumber, "4532017512830366");
+    strcpy(transaction.cardHolderData.primaryAccountNumber, "1234567812345678"); // Ensure this account exists in your loaded accounts
     strcpy(transaction.cardHolderData.cardHolderName, "Mohamed Ahmed");
     strcpy(transaction.cardHolderData.cardExpirationDate, "12/25");
     strcpy(transaction.terminalData.transactionDate, "2024/09/08");
-    transaction.terminalData.transAmount = 100.00;
+    transaction.terminalData.transAmount = 200.00;
     transaction.transactionSequenceNumber = 1;
 
     // Process the transaction
@@ -131,8 +127,28 @@ void testRecieveTransactionData() {
     if (transStatus == APPROVED) {
         printf("Transaction Approved - Passed\n");
     } else {
-        printf("Transaction Approved - Failed\n");
+        printf("Transaction Failed - Status: %d\n", transStatus);  // Print failure status for debugging
     }
 
     // Repeat with other cases like blocked accounts, insufficient funds, etc.
+}
+
+void printAccounts() {
+    AccountNode* current = accountsHead;
+
+    if (current == NULL) {
+        printf("No accounts to display. The list is empty.\n");
+        return;
+    }
+
+    printf("Accounts loaded from file:\n");
+
+    while (current != NULL) {
+        printf("Account Number: %s\n", current->accountData.primaryAccountNumber);
+        // إذا كانت الحالة عبارة عن عدد صحيح، فاجعلها أكثر وضوحًا بإظهار القيم العددية
+        printf("Account State: %s\n", (current->accountData.state == RUNNING) ? "RUNNING" : "BLOCKED");
+        printf("Balance: %.2f\n", current->accountData.balance);
+        printf("\n");
+        current = current->next;
+    }
 }
